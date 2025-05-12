@@ -66,12 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Logo or Image (optional)
-                Container(
-                  height: 150,
-                  child: Image.asset('assets/logo.png'), // Optional: Add your logo here
-                ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 40), // Just a space before the fields
 
                 // Username Field with Icon
                 TextField(
@@ -86,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fillColor: Colors.grey[200],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 16), // Space between the fields
 
                 // Password Field with Icon
                 TextField(
@@ -102,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fillColor: Colors.grey[200],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 24), // Space between the fields and the button
 
                 // Loading or Button
                 _isLoading
@@ -121,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(fontSize: 18),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 24), // Space between the button and error message
 
                 // Error Message (if any)
                 if (_errorMessage.isNotEmpty)
@@ -137,27 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                const SizedBox(height: 16),
-
-                // Sign Up Link (Optional)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Don\'t have an account?'),
-                    TextButton(
-                      onPressed: () {
-                        // Navigate to Sign Up screen
-                      },
-                      child: Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          color: Colors.deepPurple[700],
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
