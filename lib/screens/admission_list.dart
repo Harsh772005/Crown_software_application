@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:crown_software_training_task/services/api_service.dart';
 import 'package:crown_software_training_task/models/admission_model.dart';
-import 'package:crown_software_training_task/screens/login_screen.dart'; // Import login screen for navigation
+import 'package:crown_software_training_task/screens/login_screen.dart';
+import 'package:country_code_picker/country_code_picker.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-// Adds first letter capitalization for field labels
 extension StringCasingExtension on String {
   String capitalize() =>
       isEmpty ? "" : "${this[0].toUpperCase()}${substring(1)}";
@@ -24,19 +25,31 @@ class _AdmissionListScreenState extends State<AdmissionListScreen> {
   final int _limit = 10;
   bool _isLoading = false;
   bool _hasMore = true;
+  String _selectedCountryCode = '+91';
 
   @override
   void initState() {
     super.initState();
-    _fetchMore();
-
+    _checkInternetAndFetch();
     _controller.addListener(() {
-      if (_controller.position.pixels == _controller.position.maxScrollExtent &&
+      if (_controller.position.pixels ==
+          _controller.position.maxScrollExtent &&
           !_isLoading &&
           _hasMore) {
         _fetchMore();
       }
     });
+  }
+
+  Future<void> _checkInternetAndFetch() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No internet connection")),
+      );
+    } else {
+      _fetchMore();
+    }
   }
 
   Future<void> _fetchMore() async {
@@ -67,61 +80,92 @@ class _AdmissionListScreenState extends State<AdmissionListScreen> {
       "middle_name": "",
       "last_name": "",
       "phone_number": "",
-      "phone_country_code": "",
+      "phone_country_code": _selectedCountryCode,
       "email": "",
     };
 
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Add Admission"),
-            content: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  children:
-                      data.keys.map((key) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: TextFormField(
-                            decoration: InputDecoration(
-                              labelText: key.replaceAll('_', ' ').capitalize(),
-                              border: const OutlineInputBorder(),
-                            ),
-                            onChanged: (val) => data[key] = val,
-                            validator:
-                                (val) =>
-                                    val == null || val.isEmpty
-                                        ? "Required"
-                                        : null,
+      builder: (_) => AlertDialog(
+        title: const Text("Add Admission"),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Text Fields except phone
+                ...["user_code", "first_name", "middle_name", "last_name", "email"].map((field) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: TextFormField(
+                      decoration: InputDecoration(
+                        labelText: field.replaceAll('_', ' ').capitalize(),
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (val) =>
+                      val == null || val.isEmpty ? "Required" : null,
+                      onChanged: (val) => data[field] = val,
+                    ),
+                  );
+                }),
+
+                // Country Code Picker + Phone Number in a Row
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      CountryCodePicker(
+                        onChanged: (country) {
+                          _selectedCountryCode = country.dialCode!;
+                          data["phone_country_code"] = country.dialCode!;
+                        },
+                        initialSelection: 'IN',
+                        showCountryOnly: false,
+                        showFlag: true,
+                        showFlagDialog: true,
+                        alignLeft: false,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                            border: OutlineInputBorder(),
                           ),
-                        );
-                      }).toList(),
+                          validator: (val) =>
+                          val == null || val.isEmpty ? "Required" : null,
+                          onChanged: (val) => data["phone_number"] = val,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    Navigator.pop(context);
-                    final success = await ApiService.addAdmission(data);
-                    if (success) {
-                      await _refreshData();
-                    }
-                  }
-                },
-                child: const Text("Add"),
-              ),
-            ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pop(context);
+                final success = await ApiService.addAdmission(data);
+                if (success) {
+                  await _refreshData();
+                }
+              }
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
     );
   }
+
 
   void _showEditDialog(Admission admission) {
     final _formKey = GlobalKey<FormState>();
@@ -136,204 +180,208 @@ class _AdmissionListScreenState extends State<AdmissionListScreen> {
       "email": admission.email,
     };
 
+    String selectedCountryCode = admission.phoneCountryCode;
+
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Update Admission"),
-            content: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  children:
-                      data.entries.map((entry) {
-                        if (entry.key == "registration_main_id")
-                          return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: TextFormField(
-                            initialValue: entry.value,
-                            decoration: InputDecoration(
-                              labelText:
-                                  entry.key.replaceAll('_', ' ').capitalize(),
-                              border: const OutlineInputBorder(),
-                            ),
-                            onChanged: (val) => data[entry.key] = val,
-                            validator:
-                                (val) =>
-                                    val == null || val.isEmpty
-                                        ? "Required"
-                                        : null,
+      builder: (_) => AlertDialog(
+        title: const Text("Update Admission"),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Text Fields except phone
+                ...data.entries
+                    .where((e) => e.key != "registration_main_id" && e.key != "phone_number" && e.key != "phone_country_code")
+                    .map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: TextFormField(
+                      initialValue: entry.value,
+                      decoration: InputDecoration(
+                        labelText: entry.key.replaceAll('_', ' ').capitalize(),
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (val) => data[entry.key] = val,
+                      validator: (val) =>
+                      val == null || val.isEmpty ? "Required" : null,
+                    ),
+                  );
+                }).toList(),
+
+                // Country Code Picker + Phone Number in a Row
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      CountryCodePicker(
+                        onChanged: (country) {
+                          selectedCountryCode = country.dialCode!;
+                          data["phone_country_code"] = country.dialCode!;
+                        },
+                        initialSelection: admission.phoneCountryCode,
+                        showCountryOnly: false,
+                        showFlag: true,
+                        showFlagDialog: true,
+                        alignLeft: false,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: admission.phoneNumber,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                            border: OutlineInputBorder(),
                           ),
-                        );
-                      }).toList(),
+                          validator: (val) =>
+                          val == null || val.isEmpty ? "Required" : null,
+                          onChanged: (val) => data["phone_number"] = val,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            actions: [
-              ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    Navigator.pop(context);
-                    final success = await ApiService.updateAdmission(data);
-                    if (success) {
-                      await _refreshData();
-                    }
-                  }
-                },
-                child: const Text("Update"),
-              ),
-            ],
           ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pop(context);
+                final success = await ApiService.updateAdmission(data);
+                if (success) {
+                  await _refreshData();
+                }
+              }
+            },
+            child: const Text("Update"),
+          ),
+        ],
+      ),
     );
   }
+
 
   void _confirmDelete(String registrationMainId) {
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Confirm Delete"),
-            content: const Text(
-              "Are you sure you want to delete this admission?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  final success = await ApiService.deleteAdmission(
-                    registrationMainId,
-                  );
-                  if (success) {
-                    await _refreshData();
-                  }
-                },
-                child: const Text(
-                  "Delete",
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (_) => AlertDialog(
+        title: const Text("Confirm Delete"),
+        content: const Text("Are you sure you want to delete this admission?"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel")),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final success = await ApiService.deleteAdmission(registrationMainId);
+              if (success) await _refreshData();
+            },
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
+        ],
+      ),
     );
   }
 
-  // Logout functionality
   void _logout() {
-    // You can clear any stored user information here if needed (like tokens, etc.)
-    // For now, let's navigate back to the LoginScreen.
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ), // Redirect to login page
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isPortrait =
-        MediaQuery.of(context).orientation == Orientation.portrait;
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Admission List"),
         backgroundColor: Colors.indigo,
         actions: [
-          // Logout button
-          IconButton(icon: const Icon(Icons.exit_to_app), onPressed: _logout),
+          IconButton(onPressed: _logout, icon: const Icon(Icons.exit_to_app))
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
-        child:
-            _admissions.isEmpty && _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : GridView.builder(
-                  controller: _controller,
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isPortrait ? 2 : 3,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 3 / 2,
+        child: _admissions.isEmpty && _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : GridView.builder(
+          controller: _controller,
+          padding: const EdgeInsets.all(12),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isPortrait ? 2 : 3,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 3 / 2,
+          ),
+          itemCount: _admissions.length + (_hasMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == _admissions.length) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final admission = _admissions[index];
+            return Slidable(
+              key: ValueKey(admission.registrationMainId),
+              startActionPane: ActionPane(
+                motion: const DrawerMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (_) => _confirmDelete(admission.registrationMainId),
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    icon: Icons.delete,
+                    label: 'Delete',
                   ),
-                  itemCount: _admissions.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _admissions.length) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final admission = _admissions[index];
-
-                    return Slidable(
-                      key: ValueKey(admission.registrationMainId),
-                      endActionPane: ActionPane(
-                        motion: const DrawerMotion(),
-                        children: [
-                          SlidableAction(
-                            onPressed: (_) => _showEditDialog(admission),
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            icon: Icons.edit,
-                            label: 'Update',
-                          ),
-                        ],
-                      ),
-                      startActionPane: ActionPane(
-                        motion: const DrawerMotion(),
-                        children: [
-                          SlidableAction(
-                            onPressed:
-                                (_) => _confirmDelete(
-                                  admission.registrationMainId,
-                                ),
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            icon: Icons.delete,
-                            label: 'Delete',
-                          ),
-                        ],
-                      ),
-                      child: Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "${admission.firstName} ${admission.lastName}",
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                admission.email,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "${admission.phoneCountryCode} ${admission.phoneNumber}",
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                ],
+              ),
+              endActionPane: ActionPane(
+                motion: const DrawerMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (_) => _showEditDialog(admission),
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    icon: Icons.edit,
+                    label: 'Update',
+                  ),
+                ],
+              ),
+              child: Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "${admission.firstName} ${admission.lastName}",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(admission.email, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text("${admission.phoneCountryCode} ${admission.phoneNumber}",
+                          style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddDialog,

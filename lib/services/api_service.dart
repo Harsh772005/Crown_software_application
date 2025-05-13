@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/admission_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = "https://glexas.com/hostel_data/API/test/";
@@ -10,6 +11,10 @@ class ApiService {
   static const String admissionsUrl = "${baseUrl}new_admission_crud.php";
   static const String loginUrl = "${baseUrl}login.php";
 
+  static Future<bool> isUserLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey('user_token'); // or any login flag/key
+  }
   // Fetch Admissions List
   static Future<List<Admission>> fetchAdmissions(int start, int limit) async {
     try {

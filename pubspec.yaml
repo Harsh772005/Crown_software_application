@@ -36,6 +36,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   http:
   flutter_slidable:
+#  flutter_country_code_picker:
+  country_code_picker:
+  connectivity_plus:
+  shared_preferences:
+
 
 dev_dependencies:
   flutter_test:
