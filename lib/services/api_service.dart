@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/admission_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crown_software_training_task/models/post_model.dart';
+import 'package:crown_software_training_task/models/photo_model.dart';
+import 'package:crown_software_training_task/models/todo_model.dart';
 
 class ApiService {
   static const String baseUrl = "https://glexas.com/hostel_data/API/test/";
@@ -99,4 +102,47 @@ class ApiService {
       return {'status': false, 'message': 'Error: $e'};
     }
   }
+
+
+  Future<List<PostModel>> fetchPosts() async {
+    final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/posts'));
+
+    if (response.statusCode == 200) {
+      List data = json.decode(response.body);
+      return data.map((json) => PostModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load posts');
+    }
+  }
+  Future<List<PhotoModel>> fetchPhotos({required int page}) async {
+    final response = await http.get(Uri.parse(
+        'https://jsonplaceholder.typicode.com/photos?_page=$page&_limit=20'));
+
+    if (response.statusCode == 200) {
+      List data = json.decode(response.body);
+
+      // Replace thumbnail URLs with Picsum URLs
+      final fixedData = data.map((json) {
+        json['thumbnailUrl'] = 'https://picsum.photos/seed/${json['id']}/150/150';
+        json['url'] = 'https://picsum.photos/seed/full_${json['id']}/600/400';
+        return PhotoModel.fromJson(json);
+      }).toList();
+
+      return fixedData;
+    } else {
+      throw Exception('Failed to load photos');
+    }
+  }
+
+  Future<List<TodoModel>> fetchTodos() async {
+    final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/todos'));
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((json) => TodoModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load todos');
+    }
+  }
+
 }

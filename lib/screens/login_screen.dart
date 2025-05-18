@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:crown_software_training_task/services/api_service.dart';
 import 'package:crown_software_training_task/screens/admission_list.dart';
+import 'package:crown_software_training_task/widgets/bottom_nav.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,9 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (response != null && response['status'] == true) {
       // Navigate to Admission List Screen
+      // Example after successful login
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const AdmissionListScreen()),
+        MaterialPageRoute(builder: (context) => BottomNavScreen()),
       );
     } else {
       setState(() {
